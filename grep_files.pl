@@ -20,11 +20,15 @@ foreach my $file (@$files) {
     my $matching = 0;
     my @content = ();
     my $res = '';
+    my $is_ins = 0;
     
     # ファイルの内容を取得して、抜き出す部分を $match_text に取り出し、残りは @content に入れる
     open(FILE, '<', $file) or die qq(Can't open file "$file": $!);
     while (my $line = <FILE>) {
-        if (!$matching and $line =~ /$reg_start/) {
+        if ($line =~ /$reg_ins/) {
+            $is_ins = 1;
+        }
+        elsif (!$matching and $line =~ /$reg_start/) {
             $match_text = $line;
             $matching = 1;
         }
@@ -35,19 +39,30 @@ foreach my $file (@$files) {
         elsif ($matching) {
             $match_text .= $line;
         }
-        else {
-            push(@content, $line); 
-        }
+        push(@content, $line);
     }
 #     print "\n\n$match_text\n\n";
     close(FILE);
     
     # @content から挿入ポイントに先ほど抜き出した部分を挿入する
+    $matching = 0;
     foreach my $line (@content) {
-        if ($line =~ /$reg_ins/) {
+        if ($is_ins and $line =~ /$reg_ins/) {
             $line = $match_text . "\n" .  $line;
+            $res .= $line;
         }
-        $res .= $line;
+        elsif (!$matching and $is_ins and $line =~ /$reg_start/) {
+            $matching = 1;
+        }
+        elsif ($matching and $is_ins and $line =~ /$reg_end/) {
+            $matching = 0;
+        }
+        elsif ($matching and $is_ins) {
+            # do nothing
+        }
+        else {
+            $res .= $line;
+        }
     }
     
     # 今度は上書きモードでファイルを開き、コンテンツを書き換える
